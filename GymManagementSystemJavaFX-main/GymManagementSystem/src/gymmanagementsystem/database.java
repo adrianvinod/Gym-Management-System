@@ -20,8 +20,37 @@ public class database {
         try {
 
             Class.forName("com.mysql.jdbc.Driver");
+            // SSL configuration:
+            // - Secure (default): useSSL=true, requireSSL=true, verifyServerCertificate=true
+            //   Provide trust store via environment variables:
+            //     JAVA_TRUSTSTORE_PATH, JAVA_TRUSTSTORE_PASSWORD
+            // - Temporary insecure option: set env DB_USE_SSL=false to force useSSL=false
 
-            Connection connect = DriverManager.getConnection("jdbc:mysql://localhost/gym", "root", "root"); // root is the default username and password
+            String host = System.getenv("DB_HOST") != null ? System.getenv("DB_HOST") : "localhost";
+            String databaseName = System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "gym";
+            String username = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root";
+            String password = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "root";
+
+            boolean disableSsl = "false".equalsIgnoreCase(System.getenv("DB_USE_SSL"))
+                    || "0".equals(System.getenv("DB_USE_SSL"));
+
+            String url;
+            if (disableSsl) {
+                // Less secure/temporary fix
+                url = "jdbc:mysql://" + host + "/" + databaseName + "?useSSL=false";
+            } else {
+                // Secure with SSL and certificate verification
+                String trustStorePath = System.getenv("JAVA_TRUSTSTORE_PATH");
+                String trustStorePassword = System.getenv("JAVA_TRUSTSTORE_PASSWORD");
+                if (trustStorePath != null && trustStorePassword != null) {
+                    System.setProperty("javax.net.ssl.trustStore", trustStorePath);
+                    System.setProperty("javax.net.ssl.trustStorePassword", trustStorePassword);
+                }
+                url = "jdbc:mysql://" + host + "/" + databaseName
+                        + "?useSSL=true&requireSSL=true&verifyServerCertificate=true";
+            }
+
+            Connection connect = DriverManager.getConnection(url, username, password); // credentials can be overridden via env
             return connect;
         } catch (Exception e) {
             e.printStackTrace();
